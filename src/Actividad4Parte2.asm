@@ -290,7 +290,7 @@ anim_done:
 ; ------------------------------------------------------------
 ; Escoge el tile base del player según:
 ; index = player_dir * 3 + player_frame
-; Busca ese índice en animation_tiles.
+; Busca ese índice en player_animation_tiles.
 ; ------------------------------------------------------------
 .proc update_player_sprite
   LDA player_dir
@@ -300,7 +300,7 @@ anim_done:
   CLC
   ADC player_frame   ; dir * 3 + frame
   TAX
-  LDA animation_tiles,X
+  LDA player_animation_tiles,X
   STA player_tile
   RTS
 .endproc
@@ -384,7 +384,7 @@ anim_done:
   STA $0200,X
   LDA coin_tile
   STA $0201,X
-  LDA #$00
+  LDA #$01
   STA $0202,X
   LDA coin_x
   STA $0203,X
@@ -396,7 +396,7 @@ anim_done:
   CLC
   ADC #$01
   STA $0205,X
-  LDA #$00
+  LDA #$01
   STA $0206,X
   LDA coin_x
   CLC
@@ -412,7 +412,7 @@ anim_done:
   CLC
   ADC #$10
   STA $0209,X
-  LDA #$00
+  LDA #$01
   STA $020A,X
   LDA coin_x
   STA $020B,X
@@ -426,7 +426,7 @@ anim_done:
   CLC
   ADC #$11
   STA $020D,X
-  LDA #$00
+  LDA #$01
   STA $020E,X
   LDA coin_x
   CLC
@@ -536,7 +536,7 @@ done:
   STA $0200,X
   LDA enemy_tile
   STA $0201,X
-  LDA #$01
+  LDA #$02
   STA $0202,X
   LDA enemy_x
   STA $0203,X
@@ -548,7 +548,7 @@ done:
   CLC
   ADC #$01
   STA $0205,X
-  LDA #$01
+  LDA #$02
   STA $0206,X
   LDA enemy_x
   CLC
@@ -564,7 +564,7 @@ done:
   CLC
   ADC #$10
   STA $0209,X
-  LDA #$01
+  LDA #$02
   STA $020A,X
   LDA enemy_x
   STA $020B,X
@@ -578,7 +578,7 @@ done:
   CLC
   ADC #$11
   STA $020D,X
-  LDA #$01
+  LDA #$02
   STA $020E,X
   LDA enemy_x
   CLC
@@ -769,7 +769,7 @@ anim_done:
 
 ; ------------------------------------------------------------
 ; Escoge el tile base del enemigo según su dirección y frame.
-; Usa la misma tabla animation_tiles que el player.
+; Usa la misma tabla player_animation_tiles que el player.
 ; ------------------------------------------------------------
 .proc update_enemy_sprite
   LDA enemy_dir
@@ -779,7 +779,7 @@ anim_done:
   CLC
   ADC enemy_frame
   TAX
-  LDA animation_tiles,X
+  LDA enemy_animation_tiles,X
   STA enemy_tile
   RTS
 .endproc
@@ -813,7 +813,7 @@ draw_loop:
   ; top left
   LDA heart_y
   STA $0200,X
-  LDA #$93
+  LDA #$0E
   STA $0201,X
   LDA #$00
   STA $0202,X
@@ -823,7 +823,7 @@ draw_loop:
   ; top right
   LDA heart_y
   STA $0204,X
-  LDA #$94
+  LDA #$0F
   STA $0205,X
   LDA #$00
   STA $0206,X
@@ -837,7 +837,7 @@ draw_loop:
   CLC
   ADC #$08
   STA $0208,X
-  LDA #$A3
+  LDA #$1E
   STA $0209,X
   LDA #$00
   STA $020A,X
@@ -849,7 +849,7 @@ draw_loop:
   CLC
   ADC #$08
   STA $020C,X
-  LDA #$A4
+  LDA #$1F
   STA $020D,X
   LDA #$00
   STA $020E,X
@@ -948,7 +948,7 @@ load_palettes:
   STA coin_x
   LDA #$70
   STA coin_y
-  LDA #$91
+  LDA #$0C
   STA coin_tile
   LDA #$10
   STA coin_oam
@@ -1008,19 +1008,27 @@ palettes:
 .byte $0F, $09, $19, $29
 .byte $0F, $0C, $1C, $2C
 
-.byte $30, $35, $25, $0F
-.byte $30, $0F, $25, $35
-.byte $30, $35, $25, $0F
-.byte $30, $35, $25, $0F
+; sprite pallete
+.byte $0F, $35, $25, $15 ; kirby y heart
+.byte $0F, $10, $00, $2D ; coin
+.byte $0F, $26, $16, $2A ; link
+.byte $0F, $35, $25, $15 ; 
 
 ; tabla de tiles base para animación
 ; 3 tiles por dirección:
 ; right, down, left, up
-animation_tiles:
-.byte $15, $19, $1B ; right
-.byte $35, $33, $31 ; down
-.byte $17, $13, $11 ; left
-.byte $37, $39, $3B ; up
+player_animation_tiles:
+.byte $04, $08, $0A ; right
+.byte $24, $20, $22 ; down
+.byte $00, $02, $06 ; left
+.byte $26, $28, $30 ; up
+
+enemy_animation_tiles:
+.byte $44, $46, $44 ; right
+.byte $40, $42, $40 ; down
+.byte $48, $4A, $48 ; left
+.byte $4C, $4E, $4C ; up
+
 
 ; ============================================================
 ; CHARS
