@@ -3,7 +3,7 @@
 .import main
 .export reset_handler
 
-.segment "STARTUP"
+; .segment "STARTUP"
 
 .proc reset_handler
   SEI

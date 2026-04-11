@@ -39,6 +39,13 @@ enemy_dir:         .res 1     ; dirección actual del enemigo
 
 player_lives:      .res 1     ; vidas del jugador
 
+map_ptr_lo: .res 1
+map_ptr_hi: .res 1
+nt_addr_lo: .res 1
+nt_addr_hi: .res 1
+row_count: .res 1
+packed_byte: .res 1
+
 ; ============================================================
 ; BSS
 ; Variables normales en RAM. No necesitan ser tan rápidas.
@@ -891,6 +898,195 @@ done:
 .endproc
 
 ; ------------------------------------------------------------
+; BACKGROUND
+; Crea background
+; ------------------------------------------------------------
+
+.proc emit_four_tops
+  STA packed_byte
+
+  LDA packed_byte
+  AND #%00000011
+  TAX
+  LDA background_metatile_tl,X
+  STA PPUDATA
+  LDA background_metatile_tr,X
+  STA PPUDATA
+
+  LDA packed_byte
+  LSR A
+  LSR A
+  AND #%00000011
+  TAX
+  LDA background_metatile_tl,X
+  STA PPUDATA
+  LDA background_metatile_tr,X
+  STA PPUDATA
+
+  LDA packed_byte
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  AND #%00000011
+  TAX
+  LDA background_metatile_tl,X
+  STA PPUDATA
+  LDA background_metatile_tr,X
+  STA PPUDATA
+
+  LDA packed_byte
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  TAX
+  LDA background_metatile_tl,X
+  STA PPUDATA
+  LDA background_metatile_tr,X
+  STA PPUDATA
+
+  RTS
+.endproc
+
+.proc emit_four_bottoms
+  STA packed_byte
+
+  LDA packed_byte
+  AND #%00000011
+  TAX
+  LDA background_metatile_bl,X
+  STA PPUDATA
+  LDA background_metatile_br,X
+  STA PPUDATA
+
+  LDA packed_byte
+  LSR A
+  LSR A
+  AND #%00000011
+  TAX
+  LDA background_metatile_bl,X
+  STA PPUDATA
+  LDA background_metatile_br,X
+  STA PPUDATA
+
+  LDA packed_byte
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  AND #%00000011
+  TAX
+  LDA background_metatile_bl,X
+  STA PPUDATA
+  LDA background_metatile_br,X
+  STA PPUDATA
+
+  LDA packed_byte
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  LSR A
+  TAX
+  LDA background_metatile_bl,X
+  STA PPUDATA
+  LDA background_metatile_br,X
+  STA PPUDATA
+
+  RTS
+.endproc
+
+.proc load_background
+  ; Packed map pointer
+  LDA #<background_packed_map
+  STA map_ptr_lo
+  LDA #>background_packed_map
+  STA map_ptr_hi
+
+  ; Start at nametable $2000
+  LDA #$00
+  STA nt_addr_lo
+  LDA #$20
+  STA nt_addr_hi
+
+  ; 15 metatile rows total
+  LDA #15
+  STA row_count
+
+metatile_row_loop:
+  LDA PPUSTATUS
+  LDA nt_addr_hi
+  STA PPUADDR
+  LDA nt_addr_lo
+  STA PPUADDR
+
+  LDY #$00
+top_loop:
+  LDA (map_ptr_lo),Y
+  JSR emit_four_tops
+  INY
+  CPY #$04
+  BNE top_loop
+
+  LDA PPUSTATUS
+  LDA nt_addr_hi
+  STA PPUADDR
+  LDA nt_addr_lo
+  CLC
+  ADC #$20
+  STA PPUADDR
+
+  LDY #$00
+bottom_loop:
+  LDA (map_ptr_lo),Y
+  JSR emit_four_bottoms
+  INY
+  CPY #$04
+  BNE bottom_loop
+
+  ; Advance packed map pointer by 4 bytes
+  CLC
+  LDA map_ptr_lo
+  ADC #$04
+  STA map_ptr_lo
+  LDA map_ptr_hi
+  ADC #$00
+  STA map_ptr_hi
+
+  ; Advance nametable address by 2 tile rows = $40 bytes
+  CLC
+  LDA nt_addr_lo
+  ADC #$40
+  STA nt_addr_lo
+  LDA nt_addr_hi
+  ADC #$00
+  STA nt_addr_hi
+
+  DEC row_count
+  BNE metatile_row_loop
+
+  LDA PPUSTATUS
+  LDA #$23
+  STA PPUADDR
+  LDA #$C0
+  STA PPUADDR
+
+  LDY #$00
+attr_loop:
+  LDA background_attributes,Y
+  STA PPUDATA
+  INY
+  CPY #$40
+  BNE attr_loop
+
+  RTS
+.endproc
+
+; ------------------------------------------------------------
 ; MAIN
 ; Inicializa paletas, variables y enciende PPU.
 ; Luego entra al loop infinito.
@@ -912,6 +1108,8 @@ load_palettes:
   INX
   CPX #$20
   BNE load_palettes
+
+  JSR load_background
 
   ; --- inicializa player ---
   LDA #$80
@@ -984,7 +1182,7 @@ vblankwait:
   BPL vblankwait
 
   ; prender NMI y pantalla
-  LDA #%10010000
+  LDA #%10000000
   STA PPUCTRL
   LDA #%00011110
   STA PPUMASK
@@ -1003,10 +1201,10 @@ forever:
 .segment "RODATA"
 
 palettes:
-.byte $0F, $01, $11, $21
-.byte $0F, $06, $16, $26
-.byte $0F, $09, $19, $29
-.byte $0F, $0C, $1C, $2C
+.byte $0F, $30, $35, $09
+.byte $0F, $30, $10, $09
+.byte $0F, $30, $31, $09
+.byte $0F, $2D, $00, $10
 
 ; sprite pallete
 .byte $0F, $35, $25, $15 ; kirby y heart
@@ -1029,10 +1227,10 @@ enemy_animation_tiles:
 .byte $48, $4A, $48 ; left
 .byte $4C, $4E, $4C ; up
 
-
+.include "background.asm"
 ; ============================================================
 ; CHARS
 ; CHR ROM con los sprites/tiles
 ; ============================================================
-.segment "CHARS"
-.incbin "player.chr"
+.segment "CHR"
+.incbin "tiles.chr"
