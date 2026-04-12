@@ -21,13 +21,6 @@ player_speed:       .res 1     ; controla la velocidad del player
 buttons:           .res 1     ; botones leídos en este frame
 pressed_buttons:   .res 1     ; botones del frame anterior
 
-coin_x:            .res 1     ; posición X de la moneda
-coin_y:            .res 1     ; posición Y de la moneda
-coin_tile:         .res 1     ; tile base de la moneda
-coin_oam:          .res 1     ; offset de OAM donde empieza la moneda
-coin_active:       .res 1     ; 1 = la moneda se dibuja, 0 = no se dibuja
-coin_state:        .res 1     ; estado para alternar entre varias posiciones de moneda
-
 enemy_x:           .res 1     ; posición X del enemigo
 enemy_y:           .res 1     ; posición Y del enemigo
 enemy_tile:        .res 1     ; tile base del enemigo
@@ -36,8 +29,8 @@ enemy_timer:       .res 1     ; timer de movimiento del enemigo
 enemy_frame:       .res 1     ; frame actual de animación del enemigo
 enemy_anim_timer:  .res 1     ; timer para cambiar el frame del enemigo
 enemy_dir:         .res 1     ; dirección actual del enemigo
+enemy_speed:        .res 1     ; velocidad del enemy
 
-player_lives:      .res 1     ; vidas del jugador
 
 map_ptr_lo: .res 1
 map_ptr_hi: .res 1
@@ -54,9 +47,29 @@ packed_byte: .res 1
 .segment "BSS"
 
 game_over:         .res 1     ; 0 = juego sigue, 1 = juego terminado
+
 heart_oam:         .res 1     ; offset de OAM donde empiezan los corazones
-heart_y:           .res 1     ; Y temporal para dibujar corazones
-heart_x:           .res 1     ; X temporal para dibujar corazones
+heart_tile:           .res 1     ; tile base del HUD de vidas
+player_lives:      .res 1     ; vidas del jugador
+
+coin_x:            .res 1     ; posición X de la moneda
+coin_y:            .res 1     ; posición Y de la moneda
+coin_tile:         .res 1     ; tile base de la moneda
+coin_oam:          .res 1     ; offset de OAM donde empieza la moneda
+coin_active:       .res 1     ; 1 = la moneda se dibuja, 0 = no se dibuja
+coin_state:        .res 1     ; estado para alternar entre varias posiciones de moneda
+
+next_player_x:   .res 1
+next_player_y:   .res 1
+next_enemy_x:    .res 1
+next_enemy_y:    .res 1
+test_col:        .res 1
+test_row:        .res 1
+tile_kind:       .res 1
+can_move:        .res 1
+
+box_base_x:      .res 1
+box_base_y:      .res 1
 
 ; ============================================================
 ; CODE
@@ -213,10 +226,6 @@ dir_done:
 ; player_speed controla qué tan rápido camina.
 ; ------------------------------------------------------------
 .proc update_player_movement
-  ; si no hay flechas, no se anima/mueve
-  LDA buttons
-  AND #%00001111
-  BEQ move_done
 
   ; timer para no moverlo todos los frames
   INC player_timer
@@ -228,27 +237,43 @@ dir_done:
   LDA #$00
   STA player_timer
 
-  ; mover según dirección actual
+; copiar posicion actual
+  LDA player_posx
+  STA next_player_x
+  LDA player_posy
+  STA next_player_y
+
+  ; calcular siguiente posicion tentativa
   LDA player_dir
   CMP #$00
   BNE move_down
-  INC player_posx
-  RTS
-
+  INC next_player_x
+  JMP try_move
 move_down:
   CMP #$01
   BNE move_left
-  INC player_posy
-  RTS
+  INC next_player_y
+  JMP try_move
 
 move_left:
   CMP #$02
   BNE move_up
-  DEC player_posx
-  RTS
+  DEC next_player_x
+  JMP try_move
 
 move_up:
-  DEC player_posy
+  DEC next_player_y
+
+try_move:
+  JSR check_walkable_box
+  LDA can_move
+  BEQ move_done
+
+  ; si se puede mover, aplicar posicion
+  LDA next_player_x
+  STA player_posx
+  LDA next_player_y
+  STA player_posy
 
 move_done:
   RTS
@@ -259,17 +284,7 @@ move_done:
 ; Si no se está moviendo, vuelve al frame 0.
 ; ------------------------------------------------------------
 .proc update_player_animation
-  ; si no hay movimiento, deja al player quieto
-  LDA buttons
-  AND #%00001111
-  BNE anim_running
 
-  LDA #$00
-  STA player_frame
-  STA anim_timer
-  RTS
-
-anim_running:
   ; suma timer de animación
   INC anim_timer
   LDA anim_timer
@@ -452,82 +467,72 @@ done:
 ; ------------------------------------------------------------
 .proc check_coin_collision
   LDA coin_active
-  BEQ done
+  BEQ no_coin_collision
 
-  ; no colisión si right del player < left del coin
+  ; no colision si right del player < left del coin
   LDA player_posx
   CLC
   ADC #$0F
   CMP coin_x
-  BCC done
+  BCC no_coin_collision
 
-  ; no colisión si right del coin < left del player
+  ; no colision si right del coin < left del player
   LDA coin_x
   CLC
   ADC #$0F
   CMP player_posx
-  BCC done
+  BCC no_coin_collision
 
-  ; no colisión si bottom del player < top del coin
+  ; no colision si bottom del player < top del coin
   LDA player_posy
   CLC
   ADC #$0F
   CMP coin_y
-  BCC done
+  BCC no_coin_collision
 
-  ; no colisión si bottom del coin < top del player
+  ; no colision si bottom del coin < top del player
   LDA coin_y
   CLC
   ADC #$0F
   CMP player_posy
-  BCC done
+  BCC no_coin_collision
 
-  ; si el player todavía puede acelerar, bajar player_speed
+  JMP coin_hit
+
+no_coin_collision:
+  RTS
+
+coin_hit:
+  ; acelera player, pero no demasiado
   LDA player_speed
   CMP #$02
-  BEQ change_speed
-  BCC change_speed
+  BEQ speed_enemy
+  BCC speed_enemy
   DEC player_speed
 
-change_speed:
-  ; cambiar estado para mover moneda entre 3 lugares diferentes (for now)
+speed_enemy:
+  ; acelera enemy tambien, pero que siga mas lento que el player
+  LDA enemy_speed
+  CMP #$04
+  BEQ change_coin_pos
+  BCC change_coin_pos
+  DEC enemy_speed
+
+change_coin_pos:
   INC coin_state
   LDA coin_state
-  CMP #$03
-  BNE move_coin
+  CMP #$06
+  BNE load_coin_pos
 
   LDA #$00
   STA coin_state
 
-move_coin:
-  ; posición 0
-  LDA coin_state
-  CMP #$00
-  BNE move_coin1
-  LDA #$90
+load_coin_pos:
+  LDX coin_state
+  LDA coin_x_positions,X
   STA coin_x
-  LDA #$70
+  LDA coin_y_positions,X
   STA coin_y
-  RTS
-
-move_coin1:
-  ; posición 1
-  CMP #$01
-  BNE move_coin2
-  LDA #$50
-  STA coin_x
-  LDA #$90
-  STA coin_y
-  RTS
-
-move_coin2:
-  ; posición 2
-  LDA #$B0
-  STA coin_x
-  LDA #$50
-  STA coin_y
-
-done:
   RTS
 .endproc
 
@@ -640,7 +645,7 @@ done:
   STA player_posx
   LDA #$70
   STA player_posy
-  LDA #$05
+  LDA #$08
   STA player_speed
   LDA #$00
   STA player_frame
@@ -655,8 +660,13 @@ done:
   STA enemy_y
   LDA #$00
   STA enemy_timer
+  LDA #$0A
+  STA enemy_speed
+  LDA #$00
   STA enemy_frame
+  LDA #$00
   STA enemy_anim_timer
+  LDA #$00
   STA enemy_dir
 
   ; si no quedan vidas, game over
@@ -677,38 +687,87 @@ done:
 .proc update_enemy_movement
   INC enemy_timer
   LDA enemy_timer
-  CMP #$05
+  CMP enemy_speed
   BNE done
 
   ; reset timer
   LDA #$00
   STA enemy_timer
 
+  ; copiar posicion actual
+  LDA enemy_x
+  STA next_enemy_x
+  LDA enemy_y
+  STA next_enemy_y
+
   ; mover en X primero
   LDA player_posx
   CMP enemy_x
-  BEQ move_y
-  BCC move_left
+  BEQ try_y_first
+  BCC try_left_x
 
-  INC enemy_x
+  ; intentar derecha
+  INC next_enemy_x
+  JMP test_x_move
+
+try_left_x:
+  DEC next_enemy_x
+
+test_x_move:
+  LDA next_enemy_x
+  STA next_player_x
+  LDA next_enemy_y
+  STA next_player_y
+
+  JSR check_walkable_box
+  LDA can_move
+  BEQ try_y_fallback
+
+  ; si X funciona, aplicar
+  LDA next_enemy_x
+  STA enemy_x
+  LDA next_enemy_y
+  STA enemy_y
   RTS
 
-move_left:
-  DEC enemy_x
-  RTS
+  ; -----------------------------
+  ; intento 2: mover en Y
+  ; si X no funciona, trata Y
+  ; -----------------------------
+try_y_fallback:
+try_y_first:
+  LDA enemy_x
+  STA next_enemy_x
+  LDA enemy_y
+  STA next_enemy_y
 
-move_y:
-  ; cuando ya está alineado en X, mover Y
   LDA player_posy
   CMP enemy_y
   BEQ done
-  BCC move_up
+  BCC try_up_y
 
-  INC enemy_y
-  RTS
+  ; intentar abajo
+  INC next_enemy_y
+  JMP test_y_move
 
-move_up:
-  DEC enemy_y
+try_up_y:
+  DEC next_enemy_y
+
+test_y_move:
+  LDA next_enemy_x
+  STA next_player_x
+  LDA next_enemy_y
+  STA next_player_y
+
+  JSR check_walkable_box
+  LDA can_move
+  BEQ done
+
+  ; si Y funciona, aplicar
+  LDA next_enemy_x
+  STA enemy_x
+  LDA next_enemy_y
+  STA enemy_y
 
 done:
   RTS
@@ -796,102 +855,85 @@ anim_done:
 ; ------------------------------------------------------------
 .proc draw_hearts
   LDX heart_oam
-  LDY #$00            ; contador de corazones
 
-draw_loop:
-  
-  CPY player_lives
-  BEQ clear_extra
-
-  ; X = 16 + (Y * 16)
-  TYA
-  ASL A
-  ASL A
-  ASL A
-  ASL A
-  CLC
-  ADC #$10
-  STA heart_x
-
-  ; Y fijo arriba del HUD
-  LDA #$10
-  STA heart_y
-
-  ; top left
-  LDA heart_y
-  STA $0200,X
-  LDA #$0E
-  STA $0201,X
-  LDA #$00
-  STA $0202,X
-  LDA heart_x
-  STA $0203,X
-
-  ; top right
-  LDA heart_y
-  STA $0204,X
-  LDA #$0F
-  STA $0205,X
-  LDA #$00
-  STA $0206,X
-  LDA heart_x
-  CLC
-  ADC #$08
-  STA $0207,X
-
-  ; bottom left
-  LDA heart_y
-  CLC
-  ADC #$08
-  STA $0208,X
-  LDA #$1E
-  STA $0209,X
-  LDA #$00
-  STA $020A,X
-  LDA heart_x
-  STA $020B,X
-
-  ; bottom right
-  LDA heart_y
-  CLC
-  ADC #$08
-  STA $020C,X
-  LDA #$1F
-  STA $020D,X
-  LDA #$00
-  STA $020E,X
-  LDA heart_x
-  CLC
-  ADC #$08
-  STA $020F,X
-
-  ; avanza al siguiente corazón en OAM
-  TXA
-  CLC
-  ADC #$10
-  TAX
-
-  INY
-  JMP draw_loop
-
-clear_extra:
-  ; borra corazones sobrantes hasta 3
-  CPY #$03
-  BEQ done
-
+  ; esconder el bloque completo primero
   LDA #$FF
   STA $0200,X
   STA $0204,X
   STA $0208,X
   STA $020C,X
 
-  TXA
+  ; si no quedan vidas, no dibuja nada
+  LDA player_lives
+  BEQ done
+
+  ; escoge el tile base segun vidas
+  CMP #$03
+  BEQ lives3
+  CMP #$02
+  BEQ lives2
+
+  ; si no es 3 ni 2, asumimos 1
+  LDA #$C2
+  STA heart_tile
+  JMP draw_meta
+
+lives3:
+  LDA #$2C
+  STA heart_tile
+  JMP draw_meta
+
+lives2:
+  LDA #$2E
+  STA heart_tile
+
+draw_meta:
+
+  ; top left
+  LDA #$02
+  STA $0200,X
+  LDA heart_tile
+  STA $0201,X
+  LDA #$00
+  STA $0202,X
+  LDA #$10
+  STA $0203,X
+
+  ; top right
+  LDA #$02
+  STA $0204,X
+  LDA heart_tile
+  CLC
+  ADC #$01
+  STA $0205,X
+  LDA #$00
+  STA $0206,X
+  LDA #$18
+  STA $0207,X
+
+  ; bottom left
+  LDA #$0A
+  STA $0208,X
+  LDA heart_tile
   CLC
   ADC #$10
-  TAX
+  STA $0209,X
+  LDA #$00
+  STA $020A,X
+  LDA #$10
+  STA $020B,X
 
-  INY
-  JMP clear_extra
+  ; bottom right
+  LDA #$0A
+  STA $020C,X
+  LDA heart_tile
+  CLC
+  ADC #$11
+  STA $020D,X
+  LDA #$00
+  STA $020E,X
+  LDA #$18
+  STA $020F,X
 
 done:
   RTS
@@ -1086,6 +1128,149 @@ attr_loop:
   RTS
 .endproc
 
+.proc check_walkable
+  ; usa next_player_x / next_player_y como posicion a probar
+
+  LDA next_player_x
+  LSR
+  LSR
+  LSR
+  LSR
+  STA test_col
+
+  LDA next_player_y
+  LSR
+  LSR
+  LSR
+  LSR
+  STA test_row
+
+  ; index = row * 16 + col
+  LDA test_row
+  ASL
+  ASL
+  ASL
+  ASL
+  CLC
+  ADC test_col
+  TAX
+
+  ; byte_index = index / 4
+  TXA
+  LSR
+  LSR
+  TAY
+
+  ; offset dentro del byte = index % 4
+  TXA
+  AND #$03
+  STA tile_kind
+
+  ; leer byte del mapa comprimido
+  LDA background_packed_map,Y
+
+  ; acomodar al metatile correcto
+  LDX tile_kind
+shift_loop:
+  CPX #$00
+  BEQ done_shift
+  LSR
+  LSR
+  DEX
+  JMP shift_loop
+
+done_shift:
+  AND #$03
+
+  ; solo metatile 0 = fondo verde = caminable
+  CMP #$00
+  BEQ walk_ok
+
+blocked:
+  LDA #$00
+  STA can_move
+  RTS
+
+walk_ok:
+  LDA #$01
+  STA can_move
+  RTS
+.endproc
+
+.proc check_walkable_box
+  ; guarda la posicion base del cuadro 16x16
+  LDA next_player_x
+  STA box_base_x
+  LDA next_player_y
+  STA box_base_y
+
+  ; esquina 1: top-left
+  LDA box_base_x
+  STA next_player_x
+  LDA box_base_y
+  STA next_player_y
+  JSR check_walkable
+  LDA can_move
+  BEQ blocked
+
+  ; esquina 2: top-right
+  LDA box_base_x
+  CLC
+  ADC #$0F
+  STA next_player_x
+  LDA box_base_y
+  STA next_player_y
+  JSR check_walkable
+  LDA can_move
+  BEQ blocked
+
+  ; esquina 3: bottom-left
+  LDA box_base_x
+  STA next_player_x
+  LDA box_base_y
+  CLC
+  ADC #$0F
+  STA next_player_y
+  JSR check_walkable
+  LDA can_move
+  BEQ blocked
+
+  ; esquina 4: bottom-right
+  LDA box_base_x
+  CLC
+  ADC #$0F
+  STA next_player_x
+  LDA box_base_y
+  CLC
+  ADC #$0F
+  STA next_player_y
+  JSR check_walkable
+  LDA can_move
+  BEQ blocked
+
+walk_ok:
+  ; restaurar posicion base original
+  LDA box_base_x
+  STA next_player_x
+  LDA box_base_y
+  STA next_player_y
+
+  LDA #$01
+  STA can_move
+  RTS
+
+blocked:
+  ; tambien restaurar posicion base original
+  LDA box_base_x
+  STA next_player_x
+  LDA box_base_y
+  STA next_player_y
+
+  LDA #$00
+  STA can_move
+  RTS
+.endproc
+
 ; ------------------------------------------------------------
 ; MAIN
 ; Inicializa paletas, variables y enciende PPU.
@@ -1130,7 +1315,7 @@ load_palettes:
   STA pressed_buttons
   LDA #$00
   STA player_oam
-  LDA #$05
+  LDA #$08
   STA player_speed
 
   ; --- inicializa vidas y HUD ---
@@ -1166,6 +1351,8 @@ load_palettes:
   STA enemy_oam
   LDA #$00
   STA enemy_timer
+  LDA #$0A
+  STA enemy_speed
   LDA #$00
   STA enemy_anim_timer
   LDA #$00
@@ -1208,7 +1395,7 @@ palettes:
 
 ; sprite pallete
 .byte $0F, $35, $25, $15 ; kirby y heart
-.byte $0F, $10, $00, $2D ; coin
+.byte $0F, $2C, $23, $13 ; coin
 .byte $0F, $26, $16, $2A ; link
 .byte $0F, $35, $25, $15 ; 
 
@@ -1219,13 +1406,18 @@ player_animation_tiles:
 .byte $04, $08, $0A ; right
 .byte $24, $20, $22 ; down
 .byte $00, $02, $06 ; left
-.byte $26, $28, $30 ; up
+.byte $26, $28, $2A ; up
 
 enemy_animation_tiles:
 .byte $44, $46, $44 ; right
 .byte $40, $42, $40 ; down
 .byte $48, $4A, $48 ; left
 .byte $4C, $4E, $4C ; up
+
+coin_x_positions:
+.byte $90, $50, $B0, $30, $C0, $70
+coin_y_positions:
+.byte $70, $90, $50, $40, $90, $40
 
 .include "background.asm"
 ; ============================================================
