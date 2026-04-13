@@ -36,23 +36,25 @@ enemy_dir:          .res 1     ; dirección actual del enemigo
 enemy_speed:        .res 1     ; velocidad del enemy
 
 
-map_ptr_lo:         .res 1
-map_ptr_hi:         .res 1
-nt_addr_lo:         .res 1
-nt_addr_hi:         .res 1
-row_count:          .res 1
-packed_byte:        .res 1
+map_ptr_lo:         .res 1     ; byte bajo del puntero al mapa comprimido
+map_ptr_hi:         .res 1     ; byte alto del puntero al mapa comprimido
+nt_addr_lo:         .res 1     ; byte bajo de la dirección en nametable
+nt_addr_hi:         .res 1     ; byte alto de la dirección en nametable
+row_count:          .res 1     ; contador de filas de metatiles
+packed_byte:        .res 1     ; byte temporal para metatiles y otros usos
+
 
 game_over:          .res 1     ; 0 = juego sigue, 1 = juego terminado
 
 heart_oam:          .res 1     ; offset de OAM donde empiezan los corazones
 heart_tile:         .res 1     ; tile base del HUD de vidas
 player_lives:       .res 1     ; vidas del jugador
-score_ones:         .res 1
-score_tens:         .res 1
-score_oam:          .res 1
-score_x:            .res 1
-score_y:            .res 1
+score_ones:         .res 1     ; dígito de unidades
+score_tens:         .res 1     ; dígito de decenas
+score_oam:          .res 1     ; offset en OAM del score
+score_x:            .res 1     ; posición X temporal de un dígito
+score_y:            .res 1     ; posición Y temporal de un dígito
+
 
 coin_x:             .res 1     ; posición X de la moneda
 coin_y:             .res 1     ; posición Y de la moneda
@@ -61,22 +63,23 @@ coin_oam:           .res 1     ; offset de OAM donde empieza la moneda
 coin_active:        .res 1     ; 1 = la moneda se dibuja, 0 = no se dibuja
 coin_state:         .res 1     ; estado para alternar entre varias posiciones de moneda
 
-next_player_x:      .res 1
-next_player_y:      .res 1
-next_enemy_x:       .res 1
-next_enemy_y:       .res 1
-test_col:           .res 1
-test_row:           .res 1
-tile_kind:          .res 1
-can_move:           .res 1
+player_next_x:      .res 1     ; próxima X a probar antes de mover
+player_next_y:      .res 1     ; próxima Y a probar antes de mover
+next_enemy_x:       .res 1     ; reservado para próxima X del enemy
+next_enemy_y:       .res 1     ; reservado para próxima Y del enemy
+tile_col:           .res 1     ; columna del tile/metatile a revisar
+tile_row:           .res 1     ; fila del tile/metatile a revisar
+tile_kind:          .res 1     ; tipo de metatile extraído del mapa
+move_allowed:       .res 1     ; 1 = se puede mover, 0 = bloqueado
 
-box_base_x:         .res 1
-box_base_y:         .res 1
+hit_box_x:          .res 1     ; X base del cuadro de colisión 16x16
+hit_box_y:          .res 1     ; Y base del cuadro de colisión 16x16
 
-player_wanted_dir:  .res 1
-enemy_try_dir:      .res 1
+player_input_dir:   .res 1     ; dirección pedida por el input del jugador
+enemy_try_dir:      .res 1     ; dirección que el enemigo está intentando
 
-rand_seed:          .res 1
+rand_seed:          .res 1     ; semilla simple para pseudo-random
+
 
 ; ============================================================
 ; CODE
@@ -249,7 +252,6 @@ arrowkey_loop:
 
 ; ------------------------------------------------------------
 ; Decide la dirección del player según los arrow keys.
-; Right -> Down -> Left -> Up
 ; ------------------------------------------------------------
 .proc update_player_direccion
   ; Right
@@ -257,7 +259,7 @@ arrowkey_loop:
   AND #%00000001
   BEQ check_down
   LDA #$00
-  STA player_wanted_dir
+  STA player_input_dir
   RTS
 
 check_down:
@@ -266,7 +268,7 @@ check_down:
   AND #%00000100
   BEQ check_left
   LDA #$01
-  STA player_wanted_dir
+  STA player_input_dir
   RTS
 
 check_left:
@@ -275,7 +277,7 @@ check_left:
   AND #%00000010
   BEQ check_up
   LDA #$02
-  STA player_wanted_dir
+  STA player_input_dir
   RTS
 
 check_up:
@@ -284,56 +286,55 @@ check_up:
   AND #%00001000
   BEQ done
   LDA #$03
-  STA player_wanted_dir
+  STA player_input_dir
 
 done:
   RTS
 .endproc
 
-.proc build_next_pos_from_dir
+.proc get_next_pos_from_dir
   ; usa:
   ;   A = direccion
-  ;   next_player_x / next_player_y = posicion actual
+  ;   player_next_x / player_next_y = posicion actual
   ; devuelve:
-  ;   next_player_x / next_player_y = posicion siguiente (saltando 16 px)
+  ;   player_next_x / player_next_y = posicion siguiente (saltando 16 px)
 
   CMP #$00
   BNE dir_down
   ; right
-  LDA next_player_x
+  LDA player_next_x
   CLC
   ADC #$10
-  STA next_player_x
+  STA player_next_x
   RTS
 
 dir_down:
   CMP #$01
   BNE dir_left
-  LDA next_player_y
+  LDA player_next_y
   CLC
   ADC #$10
-  STA next_player_y
+  STA player_next_y
   RTS
 
 dir_left:
   CMP #$02
   BNE dir_up
-  LDA next_player_x
+  LDA player_next_x
   SEC
   SBC #$10
-  STA next_player_x
+  STA player_next_x
   RTS
 
 dir_up:
-  LDA next_player_y
+  LDA player_next_y
   SEC
   SBC #$10
-  STA next_player_y
+  STA player_next_y
   RTS
 .endproc
 ; ------------------------------------------------------------
 ; Mueve al player.
-; Solo se mueve si alguna flecha está apretada.
 ; player_speed controla qué tan rápido camina.
 ; ------------------------------------------------------------
 .proc update_player_movement
@@ -350,24 +351,24 @@ dir_up:
   ; intento 1: virar a wanted_dir
   ; ---------------------------------
   LDA player_posx
-  STA next_player_x
+  STA player_next_x
   LDA player_posy
-  STA next_player_y
+  STA player_next_y
 
-  LDA player_wanted_dir
-  JSR build_next_pos_from_dir
+  LDA player_input_dir
+  JSR get_next_pos_from_dir
 
-  JSR check_walkable_box
-  LDA can_move
+  JSR is_box_walkable
+  LDA move_allowed
   BEQ hit_wall_wanted
 
   ; si puede virar, cambia dir y mueve
-  LDA player_wanted_dir
+  LDA player_input_dir
   STA player_dir
 
-  LDA next_player_x
+  LDA player_next_x
   STA player_posx
-  LDA next_player_y
+  LDA player_next_y
   STA player_posy
   RTS
 
@@ -376,20 +377,20 @@ hit_wall_wanted:
   ; intento 2: seguir en dir actual
   ; ---------------------------------
   LDA player_posx
-  STA next_player_x
+  STA player_next_x
   LDA player_posy
-  STA next_player_y
+  STA player_next_y
 
   LDA player_dir
-  JSR build_next_pos_from_dir
+  JSR get_next_pos_from_dir
 
-  JSR check_walkable_box
-  LDA can_move
+  JSR is_box_walkable
+  LDA move_allowed
   BEQ hit_wall_current
 
-  LDA next_player_x
+  LDA player_next_x
   STA player_posx
-  LDA next_player_y
+  LDA player_next_y
   STA player_posy
 
 hit_wall_current:
@@ -578,6 +579,10 @@ done:
   RTS
 .endproc
 
+; ------------------------------------------------------------
+; Escoge una nueva posición de moneda pseudo-random.
+; ---------------------------------------------------------
+
 .proc choose_random_coin_pos
 random_retry:
   ; mezclar varios valores que cambian durante el juego
@@ -758,7 +763,7 @@ change_coin_pos:
 .endproc
 
 ; ------------------------------------------------------------
-; Revisa colisión entre el player y el enemy usando boxes 16x16.
+; Revisa colisión entre el player y el enemy
 ; Si colisiona:
 ; - resta una vida
 ; - resetea player
@@ -817,7 +822,7 @@ done:
   STA anim_timer
   STA player_dir
   STA player_timer
-  STA player_wanted_dir
+  STA player_input_dir
 
   ; reset del enemy
   LDA #$40
@@ -848,7 +853,8 @@ done:
 
 ; ------------------------------------------------------------
 ; Movimiento del enemigo.
-; Usa timer para que no se mueva tan rápido.
+; Primero intenta acercarse al player por un eje.
+; Si falla, intenta el otro eje como fallback.
 ; ------------------------------------------------------------
 .proc update_enemy_movement
   INC enemy_timer
@@ -861,69 +867,69 @@ enemy_move_ready:
   LDA #$00
   STA enemy_timer
 
-  ; ==================================================
-  ; intento 1: acercarse en X
-  ; ==================================================
   LDA player_posx
   CMP enemy_x
   BEQ try_y_axis
   BCC try_left
 
-  ; try right
+  ; Si player está a la derecha.
   LDA #$00
   STA enemy_try_dir
   JMP test_enemy_move
 
 try_left:
+  ; Si player está a la izquierda.
   LDA #$02
   STA enemy_try_dir
   JMP test_enemy_move
 
 try_y_axis:
+  ; Si ya coincide en X, intenta moverse en Y.
   LDA player_posy
   CMP enemy_y
   BNE enemy_y_not_equal
-  JMP done
+  JMP done ; si ya coincide también en Y, no mover
 enemy_y_not_equal:
   BCC try_up
 
-  ; try down
+  ; Player está abajo.
   LDA #$01
   STA enemy_try_dir
   JMP test_enemy_move
 
 try_up:
+  ; Player está arriba.
   LDA #$03
   STA enemy_try_dir
 
 test_enemy_move:
   ; copiar enemy actual a temporales compartidos
   LDA enemy_x
-  STA next_player_x
+  STA player_next_x
   LDA enemy_y
-  STA next_player_y
+  STA player_next_y
 
+; Calcular la nueva posición tentativa.
   LDA enemy_try_dir
-  JSR build_next_pos_from_dir
+  JSR get_next_pos_from_dir
 
-  JSR check_walkable_box
-  LDA can_move
+  ; Revisar si ese cuadro 16x16 es caminable.
+  JSR is_box_walkable
+  LDA move_allowed
   BEQ try_fallback_axis
 
   ; mover enemy
-  LDA next_player_x
+  LDA player_next_x
   STA enemy_x
-  LDA next_player_y
+  LDA player_next_y
   STA enemy_y
   LDA enemy_try_dir
   STA enemy_dir
   RTS
 
 try_fallback_axis:
-  ; ==================================================
   ; si X falló, intenta Y
   ; si Y falló, intenta X
-  ; ==================================================
   LDA enemy_try_dir
   CMP #$00
   BEQ fallback_y_from_right
@@ -935,6 +941,7 @@ try_fallback_axis:
   JMP fallback_x_from_up
 
 fallback_y_from_right:
+  ; Si falló en x, intentar y.
 fallback_y_from_left:
   LDA player_posy
   CMP enemy_y
@@ -954,6 +961,7 @@ fallback_up:
 
 fallback_x_from_down:
 fallback_x_from_up:
+  ; Si falló en Y, intentar X.
   LDA player_posx
   CMP enemy_x
   BNE fallback_x_not_equal
@@ -967,20 +975,20 @@ fallback_left:
 
 test_enemy_fallback:
   LDA enemy_x
-  STA next_player_x
+  STA player_next_x
   LDA enemy_y
-  STA next_player_y
+  STA player_next_y
 
   LDA enemy_try_dir
-  JSR build_next_pos_from_dir
+  JSR get_next_pos_from_dir
 
-  JSR check_walkable_box
-  LDA can_move
+  JSR is_box_walkable
+  LDA move_allowed
   BEQ done
 
-  LDA next_player_x
+  LDA player_next_x
   STA enemy_x
-  LDA next_player_y
+  LDA player_next_y
   STA enemy_y
   LDA enemy_try_dir
   STA enemy_dir
@@ -1072,7 +1080,7 @@ anim_done:
 .proc draw_hearts
   LDX heart_oam
 
-  ; esconder el bloque completo primero
+  ; esconde el bloque completo primero
   LDA #$FF
   STA $0200,X
   STA $0204,X
@@ -1358,7 +1366,7 @@ PAUSE_TILE = $AE
   LDX score_oam
   TXA
   CLC
-  ADC #$10
+  ADC #$10 ; mover al siguiente bloque de OAM
   TAX
   LDA digit_tiles,Y
   JSR draw_score_digit
@@ -1366,12 +1374,15 @@ PAUSE_TILE = $AE
   RTS
 .endproc
 
+; ------------------------------------------------------------
+; Dibuja GAME OVER usando varios metasprites 2x2.
+; Cada letra ocupa un bloque 16x16.
+; ------------------------------------------------------------
+
 .proc draw_game_over
   LDX #$60   ; usa OAM desde $0280 hasta $02FF
 
-  ; ==================================================
   ; LINEA 1: GAME
-  ; ==================================================
 
   ; G  base tile = $8C
   ; x = $60, y = $60
@@ -1528,7 +1539,6 @@ PAUSE_TILE = $AE
   ; ==================================================
   ; LINEA 2: OVER
   ; ==================================================
-
   ; O  base tile = $A4
   ; x = $60, y = $78
   LDA #$78
@@ -1685,8 +1695,11 @@ PAUSE_TILE = $AE
 .endproc
 ; ------------------------------------------------------------
 ; BACKGROUND
-; Crea background
+; Crea background expandiendo metatiles comprimidos del nametable.
 ; ------------------------------------------------------------
+
+; packed_byte guarda 4 metatiles de 2 bits cada uno.
+; Esta rutina escribe las mitades de arriba de esos 4 metatiles.
 
 .proc emit_four_tops
   STA packed_byte
@@ -1737,6 +1750,7 @@ PAUSE_TILE = $AE
   RTS
 .endproc
 
+; Igual que la rutina anterior, pero con la mitad de abajo.
 .proc emit_four_bottoms
   STA packed_byte
 
@@ -1793,23 +1807,25 @@ PAUSE_TILE = $AE
   LDA #>background_packed_map
   STA map_ptr_hi
 
-  ; Start at nametable $2000
+ ; Empieza a escribir en la nametable $2000.
   LDA #$00
   STA nt_addr_lo
   LDA #$20
   STA nt_addr_hi
 
-  ; 15 metatile rows total
+  ; 15 metatile rows 
   LDA #15
   STA row_count
 
 metatile_row_loop:
-  LDA PPUSTATUS
+  ; Posicionar PPU al inicio de la fila superior.
+  LDA PPUSTATUS ; reset interno del latch de PPUADDR
   LDA nt_addr_hi
   STA PPUADDR
   LDA nt_addr_lo
   STA PPUADDR
 
+  ; Escribir las partes de arriba de 4 bytes comprimidos.
   LDY #$00
 top_loop:
   LDA (map_ptr_lo),Y
@@ -1818,6 +1834,7 @@ top_loop:
   CPY #$04
   BNE top_loop
 
+  ; Posiciona PPU a la fila de abajo del mismo bloque.
   LDA PPUSTATUS
   LDA nt_addr_hi
   STA PPUADDR
@@ -1826,6 +1843,7 @@ top_loop:
   ADC #$20
   STA PPUADDR
 
+  ; Escribir las partes de abajo.
   LDY #$00
 bottom_loop:
   LDA (map_ptr_lo),Y
@@ -1834,7 +1852,7 @@ bottom_loop:
   CPY #$04
   BNE bottom_loop
 
-  ; Advance packed map pointer by 4 bytes
+  ; Avanza 4 bytes en el mapa comprimido.
   CLC
   LDA map_ptr_lo
   ADC #$04
@@ -1843,7 +1861,7 @@ bottom_loop:
   ADC #$00
   STA map_ptr_hi
 
-  ; Advance nametable address by 2 tile rows = $40 bytes
+  ; Avanza 2 filas de tiles en la nametable. = $40 bytes
   CLC
   LDA nt_addr_lo
   ADC #$40
@@ -1855,6 +1873,7 @@ bottom_loop:
   DEC row_count
   BNE metatile_row_loop
 
+  ; Carga la tabla de atributos en $23C0.
   LDA PPUSTATUS
   LDA #$23
   STA PPUADDR
@@ -1872,34 +1891,38 @@ attr_loop:
   RTS
 .endproc
 
+; ------------------------------------------------------------
+; Revisa si una posición puntual cae sobre un metatile caminable.
+; Solo el metatile 0 se considera libre.
+; ------------------------------------------------------------
 .proc check_walkable
-  ; usa next_player_x / next_player_y como posicion a probar
+  ; usa player_next_x / player_next_y como posicion a probar
 
-  LDA next_player_x
+  LDA player_next_x
   LSR
   LSR
   LSR
   LSR
-  STA test_col
+  STA tile_col
 
-  LDA next_player_y
+  LDA player_next_y
   LSR
   LSR
   LSR
   LSR
-  STA test_row
+  STA tile_row
 
   ; index = row * 16 + col
-  LDA test_row
+  LDA tile_row
   ASL
   ASL
   ASL
   ASL
   CLC
-  ADC test_col
+  ADC tile_col
   TAX
 
-  ; byte_index = index / 4
+  ; byte_index = index / 4, porque cada byte tiene 4 metatiles.
   TXA
   LSR
   LSR
@@ -1913,7 +1936,7 @@ attr_loop:
   ; leer byte del mapa comprimido
   LDA background_packed_map,Y
 
-  ; acomodar al metatile correcto
+  ; acomoda el metatile deseado a los bits bajos
   LDX tile_kind
 shift_loop:
   CPX #$00
@@ -1926,92 +1949,96 @@ shift_loop:
 done_shift:
   AND #$03
 
-  ; solo metatile 0 = fondo verde = caminable
+  ; solo metatile 0 = fondo verde, es caminable
   CMP #$00
   BEQ walk_ok
 
 blocked:
   LDA #$00
-  STA can_move
+  STA move_allowed
   RTS
 
 walk_ok:
   LDA #$01
-  STA can_move
+  STA move_allowed
   RTS
 .endproc
 
-.proc check_walkable_box
+; ------------------------------------------------------------
+; Revisa si el cuadro completo 16x16 cabe en zona caminable.
+; Prueba las 4 esquinas del hitbox.
+; ------------------------------------------------------------
+.proc is_box_walkable
   ; guarda la posicion base del cuadro 16x16
-  LDA next_player_x
-  STA box_base_x
-  LDA next_player_y
-  STA box_base_y
+  LDA player_next_x
+  STA hit_box_x
+  LDA player_next_y
+  STA hit_box_y
 
-  ; esquina 1: top-left
-  LDA box_base_x
-  STA next_player_x
-  LDA box_base_y
-  STA next_player_y
+  ; top-left
+  LDA hit_box_x
+  STA player_next_x
+  LDA hit_box_y
+  STA player_next_y
   JSR check_walkable
-  LDA can_move
+  LDA move_allowed
   BEQ blocked
 
-  ; esquina 2: top-right
-  LDA box_base_x
+  ; top-right
+  LDA hit_box_x
   CLC
   ADC #$0F
-  STA next_player_x
-  LDA box_base_y
-  STA next_player_y
+  STA player_next_x
+  LDA hit_box_y
+  STA player_next_y
   JSR check_walkable
-  LDA can_move
+  LDA move_allowed
   BEQ blocked
 
-  ; esquina 3: bottom-left
-  LDA box_base_x
-  STA next_player_x
-  LDA box_base_y
+  ; bottom-left
+  LDA hit_box_x
+  STA player_next_x
+  LDA hit_box_y
   CLC
   ADC #$0F
-  STA next_player_y
+  STA player_next_y
   JSR check_walkable
-  LDA can_move
+  LDA move_allowed
   BEQ blocked
 
-  ; esquina 4: bottom-right
-  LDA box_base_x
+  ; bottom-right
+  LDA hit_box_x
   CLC
   ADC #$0F
-  STA next_player_x
-  LDA box_base_y
+  STA player_next_x
+  LDA hit_box_y
   CLC
   ADC #$0F
-  STA next_player_y
+  STA player_next_y
   JSR check_walkable
-  LDA can_move
+  LDA move_allowed
   BEQ blocked
 
 walk_ok:
-  ; restaurar posicion base original
-  LDA box_base_x
-  STA next_player_x
-  LDA box_base_y
-  STA next_player_y
+  ; restaura la posicion base original
+  LDA hit_box_x
+  STA player_next_x
+  LDA hit_box_y
+  STA player_next_y
 
   LDA #$01
-  STA can_move
+  STA move_allowed
   RTS
 
 blocked:
-  ; tambien restaurar posicion base original
-  LDA box_base_x
-  STA next_player_x
-  LDA box_base_y
-  STA next_player_y
+  ; Restaura igual aunque esté bloqueado.
+  LDA hit_box_x
+  STA player_next_x
+  LDA hit_box_y
+  STA player_next_y
 
   LDA #$00
-  STA can_move
+  STA move_allowed
   RTS
 .endproc
 
@@ -2029,7 +2056,7 @@ blocked:
   LDA #$00
   STA PPUADDR
 
-  ; copiar 32 bytes de paleta
+  ; copia 32 bytes de paleta
   LDX #$00
 load_palettes:
   LDA palettes,X
@@ -2038,6 +2065,7 @@ load_palettes:
   CPX #$20
   BNE load_palettes
 
+  ; Construye background.
   JSR load_background
 
   ; --- inicializa player ---
@@ -2058,7 +2086,7 @@ load_palettes:
   LDA #$18
   STA player_speed
   LDA #$00
-  STA player_wanted_dir
+  STA player_input_dir
   LDA #$00
   STA buttons
   LDA #$00
@@ -2094,7 +2122,6 @@ load_palettes:
   LDA #$00
   STA score_ones
   STA score_tens
-
   LDA #$E0
   STA score_oam
 
@@ -2133,7 +2160,7 @@ vblankwait:
   STA PPUMASK
 
 forever:
-  JMP forever
+  JMP forever ; loop infinito, NMI hace el gameplay
 .endproc
 
 .segment "VECTORS"
@@ -2158,8 +2185,8 @@ palettes:
 .byte $0F, $26, $16, $2A ; Link
 .byte $0F, $30, $10, $00 ; Pause
 
-; tabla de tiles base para animación
-; 3 tiles por dirección:
+; Tiles base para la animación del player.
+; 3 frames por dirección.
 ; right, down, left, up
 player_animation_tiles:
 .byte $04, $08, $0A ; right
@@ -2167,17 +2194,20 @@ player_animation_tiles:
 .byte $00, $02, $06 ; left
 .byte $26, $28, $2A ; up
 
+; Tiles base para la animación del enemy.
 enemy_animation_tiles:
 .byte $44, $46, $44 ; right
 .byte $40, $42, $40 ; down
 .byte $48, $4A, $48 ; left
 .byte $4C, $4E, $4C ; up
 
+; Posiciones válidas de spawn de coin.
 coin_x_positions:
 .byte $90, $50, $B0, $30, $C0, $70
 coin_y_positions:
 .byte $70, $90, $50, $40, $90, $40
 
+; Tiles base de los números 0-9.
 digit_tiles:
 .byte $68, $6A, $6C, $6E, $80
 .byte $82, $84, $86, $88, $8A
