@@ -984,7 +984,7 @@ anim_done:
   BEQ lives2
 
   ; si no es 3 ni 2, asumimos 1
-  LDA #$C2
+  LDA #$0E
   STA heart_tile
   JMP draw_meta
 
@@ -1000,17 +1000,17 @@ lives2:
 draw_meta:
 
   ; top left
-  LDA #$02
+  LDA #$00
   STA $0200,X
   LDA heart_tile
   STA $0201,X
   LDA #$00
   STA $0202,X
-  LDA #$10
+  LDA #$00
   STA $0203,X
 
   ; top right
-  LDA #$02
+  LDA #$00
   STA $0204,X
   LDA heart_tile
   CLC
@@ -1018,11 +1018,11 @@ draw_meta:
   STA $0205,X
   LDA #$00
   STA $0206,X
-  LDA #$18
+  LDA #$08
   STA $0207,X
 
   ; bottom left
-  LDA #$0A
+  LDA #$08
   STA $0208,X
   LDA heart_tile
   CLC
@@ -1030,11 +1030,11 @@ draw_meta:
   STA $0209,X
   LDA #$00
   STA $020A,X
-  LDA #$10
+  LDA #$00
   STA $020B,X
 
   ; bottom right
-  LDA #$0A
+  LDA #$08
   STA $020C,X
   LDA heart_tile
   CLC
@@ -1042,7 +1042,7 @@ draw_meta:
   STA $020D,X
   LDA #$00
   STA $020E,X
-  LDA #$18
+  LDA #$08
   STA $020F,X
 
 done:
