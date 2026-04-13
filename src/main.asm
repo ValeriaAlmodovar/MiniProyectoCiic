@@ -2146,12 +2146,13 @@ forever:
 .segment "RODATA"
 
 palettes:
+; background palette
 .byte $0F, $30, $35, $09
 .byte $0F, $30, $10, $09
-.byte $0F, $30, $31, $09
+.byte $0F, $30, $1C, $09
 .byte $0F, $2D, $00, $10
 
-; sprite pallete
+; sprite palette
 .byte $0F, $35, $25, $15 ; Kirby y Heart
 .byte $0F, $2C, $23, $13 ; Coin
 .byte $0F, $26, $16, $2A ; Link

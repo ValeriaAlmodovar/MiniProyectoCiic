@@ -1,12 +1,15 @@
-; Compressed 2-bit metatile background generated from 4th_background.asm
-; Fixed to match loader bit order: bits 1-0 = leftmost metatile
+; Compressed 2-bit metatile background generated from background.asm
+; 4 unique metatiles, 16x15 metatile map, 60 bytes packed + 64 bytes attributes
 
 background_metatile_tl:
   .byte $60,$62,$64,$66
+
 background_metatile_tr:
   .byte $61,$63,$65,$67
+
 background_metatile_bl:
   .byte $70,$72,$74,$76
+
 background_metatile_br:
   .byte $71,$73,$75,$77
 
@@ -28,7 +31,7 @@ background_packed_map:
   .byte $55,$55,$55,$55
 
 background_attributes:
-  .byte $5F,$5F,$5F,$5F,$5F,$5F,$5F,$5F,$55,$55,$55,$55,$55,$55,$55,$55
-  .byte $55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55
-  .byte $55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55,$55
-  .byte $55,$55,$55,$55,$55,$55,$55,$55,$05,$05,$05,$05,$05,$05,$05,$05
+  .byte $5F,$5F,$5F,$5F,$5F,$5F,$5F,$5F,$55,$15,$55,$55,$54,$45,$45,$56
+  .byte $55,$55,$56,$55,$59,$55,$65,$55,$55,$15,$55,$15,$55,$59,$55,$56
+  .byte $55,$54,$55,$55,$66,$66,$55,$55,$55,$16,$95,$55,$15,$55,$54,$55
+  .byte $55,$55,$55,$51,$55,$55,$55,$55,$05,$05,$05,$05,$05,$05,$05,$05
