@@ -8,47 +8,53 @@
 ; ============================================================
 .segment "ZEROPAGE"
 
-player_tile:       .res 1     ; tile base (top-left) del player actual
-player_posx:       .res 1     ; posición X del player
-player_posy:       .res 1     ; posición Y del player
-player_oam:        .res 1     ; offset de OAM donde empieza el player
-player_frame:      .res 1     ; frame actual de animación del player (0,1,2)
-anim_timer:        .res 1     ; timer para decidir cuándo cambiar de frame
-player_dir:        .res 1     ; dirección del player: 0=right, 1=down, 2=left, 3=up
-player_timer:      .res 1     ; timer para decidir cuándo mover el player
-player_speed:      .res 1     ; controla la velocidad del player
+player_tile:          .res 1     ; tile base (top-left) del player actual
+player_posx:          .res 1     ; posición X del player
+player_posy:          .res 1     ; posición Y del player
+player_oam:           .res 1     ; offset de OAM donde empieza el player
+player_frame:         .res 1     ; frame actual de animación del player (0,1,2)
+anim_timer:           .res 1     ; timer para decidir cuándo cambiar de frame
+player_dir:           .res 1     ; dirección del player: 0=right, 1=down, 2=left, 3=up
+player_timer:         .res 1     ; timer para decidir cuándo mover el player
+player_speed:         .res 1     ; controla la velocidad del player
 
-buttons:           .res 1     ; botones leídos en este frame
-pressed_buttons:   .res 1     ; botones del frame anterior
-paused:            .res 1     ; 0 = jugando, 1 = pausa
-pause_x:           .res 1     ; posición X de la pausa
-pause_y:           .res 1     ; posición Y de la pausa
-pause_oam:         .res 1     ; offset de OAM donde empieza la pausa
+buttons:              .res 1     ; botones leídos en este frame
+pressed_buttons:      .res 1     ; botones del frame anterior
+paused:               .res 1     ; 0 = jugando, 1 = pausa
+pause_x:              .res 1     ; posición X de la pausa
+pause_y:              .res 1     ; posición Y de la pausa
+pause_oam:            .res 1     ; offset de OAM donde empieza la pausa
 
-coin_x:            .res 1     ; posición X de la moneda
-coin_y:            .res 1     ; posición Y de la moneda
-coin_tile:         .res 1     ; tile base de la moneda
-coin_oam:          .res 1     ; offset de OAM donde empieza la moneda
-coin_active:       .res 1     ; 1 = la moneda se dibuja, 0 = no se dibuja
-coin_state:        .res 1     ; estado para alternar entre varias posiciones de moneda
+coin_x:               .res 1     ; posición X de la moneda
+coin_y:               .res 1     ; posición Y de la moneda
+coin_tile:            .res 1     ; tile base de la moneda
+coin_oam:             .res 1     ; offset de OAM donde empieza la moneda
+coin_active:          .res 1     ; 1 = la moneda se dibuja, 0 = no se dibuja
+coin_state:           .res 1     ; estado para alternar entre varias posiciones de moneda
 
-enemy_x:           .res 1     ; posición X del enemigo
-enemy_y:           .res 1     ; posición Y del enemigo
-enemy_tile:        .res 1     ; tile base del enemigo
-enemy_oam:         .res 1     ; offset de OAM donde empieza el enemigo
-enemy_timer:       .res 1     ; timer de movimiento del enemigo
-enemy_frame:       .res 1     ; frame actual de animación del enemigo
-enemy_anim_timer:  .res 1     ; timer para cambiar el frame del enemigo
-enemy_dir:         .res 1     ; dirección actual del enemigo
+enemy_x:              .res 1     ; posición X del enemigo
+enemy_y:              .res 1     ; posición Y del enemigo
+enemy_tile:           .res 1     ; tile base del enemigo
+enemy_oam:            .res 1     ; offset de OAM donde empieza el enemigo
+enemy_timer:          .res 1     ; timer de movimiento del enemigo
+enemy_frame:          .res 1     ; frame actual de animación del enemigo
+enemy_anim_timer:     .res 1     ; timer para cambiar el frame del enemigo
+enemy_dir:            .res 1     ; dirección actual del enemigo
+enemy_speed:          .res 1     ; velocidad del enemy
 
-player_lives:      .res 1     ; vidas del jugador
+player_lives:         .res 1     ; vidas del jugador
+score_ones:           .res 1
+score_tens:           .res 1
+score_oam:            .res 1
+score_x:              .res 1
+score_y:              .res 1
 
-map_ptr_lo: .res 1
-map_ptr_hi: .res 1
-nt_addr_lo: .res 1
-nt_addr_hi: .res 1
-row_count: .res 1
-packed_byte: .res 1
+map_ptr_lo:           .res 1
+map_ptr_hi:           .res 1
+nt_addr_lo:           .res 1
+nt_addr_hi:           .res 1
+row_count:            .res 1
+packed_byte:          .res 1
 
 ; ============================================================
 ; BSS
@@ -57,10 +63,27 @@ packed_byte: .res 1
 ; ============================================================
 .segment "BSS"
 
-game_over:         .res 1     ; 0 = juego sigue, 1 = juego terminado
-heart_oam:         .res 1     ; offset de OAM donde empiezan los corazones
-heart_y:           .res 1     ; Y temporal para dibujar corazones
-heart_x:           .res 1     ; X temporal para dibujar corazones
+game_over:            .res 1     ; 0 = juego sigue, 1 = juego terminado
+
+heart_oam:            .res 1     ; offset de OAM donde empiezan los corazones
+heart_tile:           .res 1     ; tile base del HUD de vidas
+heart_y:              .res 1     ; Y temporal para dibujar corazones
+heart_x:              .res 1     ; X temporal para dibujar corazones
+
+next_player_x:        .res 1
+next_player_y:        .res 1
+next_enemy_x:         .res 1
+next_enemy_y:         .res 1
+test_col:             .res 1
+test_row:             .res 1
+tile_kind:            .res 1
+can_move:             .res 1
+
+box_base_x:           .res 1
+box_base_y:           .res 1
+
+player_wanted_dir:    .res 1
+enemy_try_dir:        .res 1
 
 ; ============================================================
 ; CODE
@@ -138,6 +161,7 @@ freeze_game:
   JSR draw_player
   JSR draw_coin
   JSR draw_enemy
+  JSR draw_score
 
   LDA paused
   BEQ draw_lives_hud
@@ -520,7 +544,32 @@ done:
   CMP player_posy
   BCC done
 
-  ; si el player todavía puede acelerar, bajar player_speed
+  JMP coin_hit
+
+no_coin_collision:
+  RTS
+
+coin_hit:
+  ; sumar 1 al score
+  INC score_ones
+  LDA score_ones
+  CMP #$0A
+  BNE score_done
+
+  LDA #$00
+  STA score_ones
+  INC score_tens
+
+  LDA score_tens
+  CMP #$0A
+  BNE score_done
+
+  ; si llega a 99 y toma otra moneda, vuelve a 00
+  LDA #$00
+  STA score_tens
+
+score_done:
+  ; acelera player, pero no demasiado
   LDA player_speed
   CMP #$02
   BEQ change_speed
@@ -1052,6 +1101,107 @@ PAUSE_TILE = $AE
 .endproc
 
 ; ------------------------------------------------------------
+; Dibuja un digito del score
+; ------------------------------------------------------------
+.proc draw_score_digit
+  ; entrada:
+  ; A = tile base del digito
+  ; X = offset OAM
+  ; score_x / score_y = posicion
+
+  STA packed_byte
+
+  ; top-left
+  LDA score_y
+  STA $0200,X
+  LDA packed_byte
+  STA $0201,X
+  LDA #$00
+  STA $0202,X
+  LDA score_x
+  STA $0203,X
+
+  ; top-right
+  LDA score_y
+  STA $0204,X
+  LDA packed_byte
+  CLC
+  ADC #$01
+  STA $0205,X
+  LDA #$00
+  STA $0206,X
+  LDA score_x
+  CLC
+  ADC #$08
+  STA $0207,X
+
+  ; bottom-left
+  LDA score_y
+  CLC
+  ADC #$08
+  STA $0208,X
+  LDA packed_byte
+  CLC
+  ADC #$10
+  STA $0209,X
+  LDA #$00
+  STA $020A,X
+  LDA score_x
+  STA $020B,X
+
+  ; bottom-right
+  LDA score_y
+  CLC
+  ADC #$08
+  STA $020C,X
+  LDA packed_byte
+  CLC
+  ADC #$11
+  STA $020D,X
+  LDA #$00
+  STA $020E,X
+  LDA score_x
+  CLC
+  ADC #$08
+  STA $020F,X
+
+  RTS
+.endproc
+
+.proc draw_score
+  ; posicion del score en esquina superior derecha
+  LDA #$00
+  STA score_y
+
+  ; -------------------------
+  ; digito de decenas
+  ; -------------------------
+  LDA #$D0
+  STA score_x
+  LDA score_tens
+  TAX
+  LDA digit_tiles,X
+  LDX score_oam
+  JSR draw_score_digit
+
+  ; -------------------------
+  ; digito de unidades
+  ; -------------------------
+  LDA #$E0
+  STA score_x
+  LDY score_ones
+  LDX score_oam
+  TXA
+  CLC
+  ADC #$10
+  TAX
+  LDA digit_tiles,Y
+  JSR draw_score_digit
+
+  RTS
+.endproc
+
+; ------------------------------------------------------------
 ; BACKGROUND
 ; Crea background
 ; ------------------------------------------------------------
@@ -1331,6 +1481,14 @@ load_palettes:
   LDA #$00
   STA enemy_dir
 
+  ; --- inicializa score ---
+  LDA #$00
+  STA score_ones
+  STA score_tens
+
+  LDA #$70
+  STA score_oam
+
   ; escoger tile inicial del player
   JSR update_player_sprite
 
@@ -1359,12 +1517,13 @@ forever:
 .segment "RODATA"
 
 palettes:
+; background palette
 .byte $0F, $30, $35, $09
 .byte $0F, $30, $10, $09
 .byte $0F, $30, $31, $09
 .byte $0F, $2D, $00, $10
 
-; sprite pallete
+; sprite palette
 .byte $0F, $35, $25, $15 ; Kirby y Heart
 .byte $0F, $10, $00, $2D ; Coin
 .byte $0F, $26, $16, $2A ; Link
@@ -1384,6 +1543,15 @@ enemy_animation_tiles:
 .byte $40, $42, $40 ; down
 .byte $48, $4A, $48 ; left
 .byte $4C, $4E, $4C ; up
+
+coin_x_positions:
+.byte $90, $50, $B0, $30, $C0, $70
+coin_y_positions:
+.byte $70, $90, $50, $40, $90, $40
+
+digit_tiles:
+.byte $68, $6A, $6C, $6E, $80
+.byte $82, $84, $86, $88, $8A
 
 .include "background.asm"
 ; ============================================================
