@@ -1003,87 +1003,6 @@ anim_done:
 ; ------------------------------------------------------------
 .proc draw_hearts
   LDX heart_oam
-  LDY #$00            ; contador de corazones
-
-draw_loop: 
-  CPY player_lives
-  BEQ clear_extra
-
-  ; X = 16 + (Y * 16)
-  TYA
-  ASL A
-  ASL A
-  ASL A
-  ASL A
-  CLC
-  ADC #$10
-  STA heart_x
-
-  ; Y fijo arriba del HUD
-  LDA #$10
-  STA heart_y
-
-  ; top left
-  LDA heart_y
-  STA $0200,X
-  LDA #$0E
-  STA $0201,X
-  LDA #$00
-  STA $0202,X
-  LDA heart_x
-  STA $0203,X
-
-  ; top right
-  LDA heart_y
-  STA $0204,X
-  LDA #$0F
-  STA $0205,X
-  LDA #$00
-  STA $0206,X
-  LDA heart_x
-  CLC
-  ADC #$08
-  STA $0207,X
-
-  ; bottom left
-  LDA heart_y
-  CLC
-  ADC #$08
-  STA $0208,X
-  LDA #$1E
-  STA $0209,X
-  LDA #$00
-  STA $020A,X
-  LDA heart_x
-  STA $020B,X
-
-  ; bottom right
-  LDA heart_y
-  CLC
-  ADC #$08
-  STA $020C,X
-  LDA #$1F
-  STA $020D,X
-  LDA #$00
-  STA $020E,X
-  LDA heart_x
-  CLC
-  ADC #$08
-  STA $020F,X
-
-  ; avanza al siguiente corazón en OAM
-  TXA
-  CLC
-  ADC #$10
-  TAX
-
-  INY
-  JMP draw_loop
-
-clear_extra:
-  ; borra corazones sobrantes hasta 3
-  CPY #$03
-  BEQ done
 
   ; esconder el bloque completo primero
   LDA #$FF
@@ -1657,7 +1576,7 @@ load_palettes:
   STA player_timer
   LDA #$00
   STA player_oam
-  LDA #$05
+  LDA #$18
   STA player_speed
   LDA #$00
   STA player_wanted_dir
