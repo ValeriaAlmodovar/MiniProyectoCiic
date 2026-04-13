@@ -78,6 +78,8 @@ box_base_y:      .res 1
 player_wanted_dir: .res 1
 enemy_try_dir:     .res 1
 
+rand_seed:         .res 1
+
 ; ============================================================
 ; CODE
 ; Rutinas del gameplay
@@ -123,7 +125,36 @@ done:
 
   ; si game_over = 1, se frisa el juego
   LDA game_over
-  BNE freeze_game
+  BEQ continue_game
+
+  ; ocultar player
+  LDA #$F8
+  STA $0200
+  STA $0204
+  STA $0208
+  STA $020C
+
+  ; ocultar coin
+  STA $0210
+  STA $0214
+  STA $0218
+  STA $021C
+
+  ; ocultar enemy
+  STA $0220
+  STA $0224
+  STA $0228
+  STA $022C
+
+  ; ocultar HUD normal
+  JSR hide_hearts
+  JSR hide_pause_symbol
+
+  ; dibujar GAME OVER
+  JSR draw_game_over
+  JMP hud_done
+
+continue_game:
 
   ; si pausa = 1, se frisa el juego
   LDA paused
@@ -548,6 +579,39 @@ done:
   RTS
 .endproc
 
+.proc choose_random_coin_pos
+random_retry:
+  ; mezclar varios valores que cambian durante el juego
+  LDA player_timer
+  CLC
+  ADC enemy_timer
+  CLC
+  ADC anim_timer
+  CLC
+  ADC buttons
+  CLC
+  ADC rand_seed
+  STA rand_seed
+
+  ; sacar numero 0..7
+  LDA rand_seed
+  AND #$07
+
+  ; solo queremos 0..5 porque tienes 6 posiciones
+  CMP #$06
+  BCS random_retry
+
+  STA coin_state
+  TAX
+
+  LDA coin_x_positions,X
+  STA coin_x
+
+  LDA coin_y_positions,X
+  STA coin_y
+
+  RTS
+.endproc
 ; ------------------------------------------------------------
 ; Revisa colisión entre el player y el coin usando boxes 16x16.
 ; Si colisiona:
@@ -608,20 +672,7 @@ speed_enemy:
   DEC enemy_speed
 
 change_coin_pos:
-  INC coin_state
-  LDA coin_state
-  CMP #$06
-  BNE load_coin_pos
-
-  LDA #$00
-  STA coin_state
-
-load_coin_pos:
-  LDX coin_state
-  LDA coin_x_positions,X
-  STA coin_x
-  LDA coin_y_positions,X
-  STA coin_y
+  JSR choose_random_coin_pos
   RTS
 .endproc
 
@@ -1188,7 +1239,6 @@ done:
 .endproc
 
 PAUSE_TILE = $AE
-
 ; ------------------------------------------------------------
 ; Oculta el simbolo de pausa
 ; ------------------------------------------------------------
@@ -1204,6 +1254,323 @@ PAUSE_TILE = $AE
   RTS
 .endproc
 
+.proc draw_game_over
+  LDX #$80   ; usa OAM desde $0280 hasta $02FF
+
+  ; ==================================================
+  ; LINEA 1: GAME
+  ; ==================================================
+
+  ; G  base tile = $8C
+  ; x = $60, y = $60
+  LDA #$60
+  STA $0200,X
+  LDA #$8C
+  STA $0201,X
+  LDA #$03
+  STA $0202,X
+  LDA #$60
+  STA $0203,X
+
+  LDA #$60
+  STA $0204,X
+  LDA #$8D
+  STA $0205,X
+  LDA #$03
+  STA $0206,X
+  LDA #$68
+  STA $0207,X
+
+  LDA #$68
+  STA $0208,X
+  LDA #$9C
+  STA $0209,X
+  LDA #$03
+  STA $020A,X
+  LDA #$60
+  STA $020B,X
+
+  LDA #$68
+  STA $020C,X
+  LDA #$9D
+  STA $020D,X
+  LDA #$03
+  STA $020E,X
+  LDA #$68
+  STA $020F,X
+
+  ; A  base tile = $8E
+  ; x = $70, y = $60
+  LDA #$60
+  STA $0210,X
+  LDA #$8E
+  STA $0211,X
+  LDA #$03
+  STA $0212,X
+  LDA #$70
+  STA $0213,X
+
+  LDA #$60
+  STA $0214,X
+  LDA #$8F
+  STA $0215,X
+  LDA #$03
+  STA $0216,X
+  LDA #$78
+  STA $0217,X
+
+  LDA #$68
+  STA $0218,X
+  LDA #$9E
+  STA $0219,X
+  LDA #$03
+  STA $021A,X
+  LDA #$70
+  STA $021B,X
+
+  LDA #$68
+  STA $021C,X
+  LDA #$9F
+  STA $021D,X
+  LDA #$03
+  STA $021E,X
+  LDA #$78
+  STA $021F,X
+
+  ; M  base tile = $A0
+  ; x = $80, y = $60
+  LDA #$60
+  STA $0220,X
+  LDA #$A0
+  STA $0221,X
+  LDA #$03
+  STA $0222,X
+  LDA #$80
+  STA $0223,X
+
+  LDA #$60
+  STA $0224,X
+  LDA #$A1
+  STA $0225,X
+  LDA #$03
+  STA $0226,X
+  LDA #$88
+  STA $0227,X
+
+  LDA #$68
+  STA $0228,X
+  LDA #$B0
+  STA $0229,X
+  LDA #$03
+  STA $022A,X
+  LDA #$80
+  STA $022B,X
+
+  LDA #$68
+  STA $022C,X
+  LDA #$B1
+  STA $022D,X
+  LDA #$03
+  STA $022E,X
+  LDA #$88
+  STA $022F,X
+
+  ; E  base tile = $A2
+  ; x = $90, y = $60
+  LDA #$60
+  STA $0230,X
+  LDA #$A2
+  STA $0231,X
+  LDA #$03
+  STA $0232,X
+  LDA #$90
+  STA $0233,X
+
+  LDA #$60
+  STA $0234,X
+  LDA #$A3
+  STA $0235,X
+  LDA #$03
+  STA $0236,X
+  LDA #$98
+  STA $0237,X
+
+  LDA #$68
+  STA $0238,X
+  LDA #$B2
+  STA $0239,X
+  LDA #$03
+  STA $023A,X
+  LDA #$90
+  STA $023B,X
+
+  LDA #$68
+  STA $023C,X
+  LDA #$B3
+  STA $023D,X
+  LDA #$03
+  STA $023E,X
+  LDA #$98
+  STA $023F,X
+
+  ; ==================================================
+  ; LINEA 2: OVER
+  ; ==================================================
+
+  ; O  base tile = $A4
+  ; x = $60, y = $78
+  LDA #$78
+  STA $0240,X
+  LDA #$A4
+  STA $0241,X
+  LDA #$03
+  STA $0242,X
+  LDA #$60
+  STA $0243,X
+
+  LDA #$78
+  STA $0244,X
+  LDA #$A5
+  STA $0245,X
+  LDA #$03
+  STA $0246,X
+  LDA #$68
+  STA $0247,X
+
+  LDA #$80
+  STA $0248,X
+  LDA #$B4
+  STA $0249,X
+  LDA #$03
+  STA $024A,X
+  LDA #$60
+  STA $024B,X
+
+  LDA #$80
+  STA $024C,X
+  LDA #$B5
+  STA $024D,X
+  LDA #$03
+  STA $024E,X
+  LDA #$68
+  STA $024F,X
+
+  ; V  base tile = $A6
+  ; x = $70, y = $78
+  LDA #$78
+  STA $0250,X
+  LDA #$A6
+  STA $0251,X
+  LDA #$03
+  STA $0252,X
+  LDA #$70
+  STA $0253,X
+
+  LDA #$78
+  STA $0254,X
+  LDA #$A7
+  STA $0255,X
+  LDA #$03
+  STA $0256,X
+  LDA #$78
+  STA $0257,X
+
+  LDA #$80
+  STA $0258,X
+  LDA #$B6
+  STA $0259,X
+  LDA #$03
+  STA $025A,X
+  LDA #$70
+  STA $025B,X
+
+  LDA #$80
+  STA $025C,X
+  LDA #$B7
+  STA $025D,X
+  LDA #$03
+  STA $025E,X
+  LDA #$78
+  STA $025F,X
+
+  ; E  base tile = $A2
+  ; x = $80, y = $78
+  LDA #$78
+  STA $0260,X
+  LDA #$A2
+  STA $0261,X
+  LDA #$03
+  STA $0262,X
+  LDA #$80
+  STA $0263,X
+
+  LDA #$78
+  STA $0264,X
+  LDA #$A3
+  STA $0265,X
+  LDA #$03
+  STA $0266,X
+  LDA #$88
+  STA $0267,X
+
+  LDA #$80
+  STA $0268,X
+  LDA #$B2
+  STA $0269,X
+  LDA #$03
+  STA $026A,X
+  LDA #$80
+  STA $026B,X
+
+  LDA #$80
+  STA $026C,X
+  LDA #$B3
+  STA $026D,X
+  LDA #$03
+  STA $026E,X
+  LDA #$88
+  STA $026F,X
+
+  ; R  base tile = $A8
+  ; x = $90, y = $78
+  LDA #$78
+  STA $0270,X
+  LDA #$A8
+  STA $0271,X
+  LDA #$03
+  STA $0272,X
+  LDA #$90
+  STA $0273,X
+
+  LDA #$78
+  STA $0274,X
+  LDA #$A9
+  STA $0275,X
+  LDA #$03
+  STA $0276,X
+  LDA #$98
+  STA $0277,X
+
+  LDA #$80
+  STA $0278,X
+  LDA #$B8
+  STA $0279,X
+  LDA #$03
+  STA $027A,X
+  LDA #$90
+  STA $027B,X
+
+  LDA #$80
+  STA $027C,X
+  LDA #$B9
+  STA $027D,X
+  LDA #$03
+  STA $027E,X
+  LDA #$98
+  STA $027F,X
+
+  RTS
+.endproc
 ; ------------------------------------------------------------
 ; BACKGROUND
 ; Crea background
