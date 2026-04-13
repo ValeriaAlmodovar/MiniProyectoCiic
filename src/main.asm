@@ -16,10 +16,14 @@ player_frame:      .res 1     ; frame actual de animación del player (0,1,2)
 anim_timer:        .res 1     ; timer para decidir cuándo cambiar de frame
 player_dir:        .res 1     ; dirección del player: 0=right, 1=down, 2=left, 3=up
 player_timer:      .res 1     ; timer para decidir cuándo mover el player
-player_speed:       .res 1     ; controla la velocidad del player
+player_speed:      .res 1     ; controla la velocidad del player
 
 buttons:           .res 1     ; botones leídos en este frame
 pressed_buttons:   .res 1     ; botones del frame anterior
+paused:            .res 1     ; 0 = jugando, 1 = pausa
+pause_x:           .res 1     ; posición X de la pausa
+pause_y:           .res 1     ; posición Y de la pausa
+pause_oam:         .res 1     ; offset de OAM donde empieza la pausa
 
 coin_x:            .res 1     ; posición X de la moneda
 coin_y:            .res 1     ; posición Y de la moneda
@@ -63,6 +67,25 @@ heart_x:           .res 1     ; X temporal para dibujar corazones
 ; Rutinas del gameplay
 ; ============================================================
 .segment "CODE"
+.proc check_pause_toggle
+  ; detectar Start recien presionado
+  LDA buttons
+  AND #%00010000             ; start actual
+  BEQ done
+
+  LDA pressed_buttons
+  AND #%00010000             ; start frame anterior
+  BNE done                   ; si ya estaba apretado, no togglear otra vez
+
+  ; alternar pausa
+  LDA paused
+  EOR #$01
+  STA paused
+
+done:
+  RTS
+.endproc
+
 ; ------------------------------------------------------------
 ; IRQ handler
 ; ------------------------------------------------------------
@@ -77,9 +100,17 @@ heart_x:           .res 1     ; X temporal para dibujar corazones
 ; ------------------------------------------------------------
 .proc nmi_handler
   JSR read_arrow_keys        ; leer control
+  JSR check_pause_toggle     ; verificar pausa
+
+  ; LDA #$00
+  ; STA paused
 
   ; si game_over = 1, se frisa el juego
   LDA game_over
+  BNE freeze_game
+
+  ; si pausa = 1, se frisa el juego
+  LDA paused
   BNE freeze_game
 
   ; --- actualizar player ---
@@ -107,12 +138,19 @@ freeze_game:
   JSR draw_player
   JSR draw_coin
   JSR draw_enemy
+
+  LDA paused
+  BEQ draw_lives_hud
+
+  JSR hide_hearts
+  JSR draw_pause_symbol
+  JMP hud_done
+  
+draw_lives_hud:
+  JSR hide_pause_symbol
   JSR draw_hearts
 
-  ; ----------------------------------------------------------
-  ; DMA de sprites:
-  ; copia el bloque $0200-$02FF a OAM del PPU
-  ; ----------------------------------------------------------
+hud_done:
   LDA #$00
   STA OAMADDR
   LDA #$02
@@ -798,8 +836,7 @@ anim_done:
   LDX heart_oam
   LDY #$00            ; contador de corazones
 
-draw_loop:
-  
+draw_loop: 
   CPY player_lives
   BEQ clear_extra
 
@@ -894,6 +931,123 @@ clear_extra:
   JMP clear_extra
 
 done:
+  RTS
+.endproc
+
+; ------------------------------------------------------------
+; Oculta los corazones del HUD
+; ------------------------------------------------------------
+.proc hide_hearts
+  LDX heart_oam
+  LDA #$F8
+
+  ; corazon 1
+  STA $0200,X
+  STA $0204,X
+  STA $0208,X
+  STA $020C,X
+
+  ; corazon 2
+  STA $0210,X
+  STA $0214,X
+  STA $0218,X
+  STA $021C,X
+
+  ; corazon 3
+  STA $0220,X
+  STA $0224,X
+  STA $0228,X
+  STA $022C,X
+
+  RTS
+.endproc
+
+; ------------------------------------------------------------
+; Dibuja la pausa en el HUD
+; ------------------------------------------------------------
+.proc draw_pause_symbol
+  LDX pause_oam
+
+  ; posicion en pantalla
+  LDA #$00
+  STA pause_y
+  LDA #$78
+  STA pause_x
+
+  LDA #PAUSE_TILE
+  STA packed_byte
+
+  ; top-left
+  LDA pause_y
+  STA $0200,X
+  LDA packed_byte
+  STA $0201,X
+  LDA #$03
+  STA $0202,X
+  LDA pause_x
+  STA $0203,X
+
+  ; top-right
+  LDA pause_y
+  STA $0204,X
+  LDA packed_byte
+  CLC
+  ADC #$01
+  STA $0205,X
+  LDA #$03
+  STA $0206,X
+  LDA pause_x
+  CLC
+  ADC #$08
+  STA $0207,X
+
+  ; bottom-left
+  LDA pause_y
+  CLC
+  ADC #$08
+  STA $0208,X
+  LDA packed_byte
+  CLC
+  ADC #$10
+  STA $0209,X
+  LDA #$03
+  STA $020A,X
+  LDA pause_x
+  STA $020B,X
+
+  ; bottom-right
+  LDA pause_y
+  CLC
+  ADC #$08
+  STA $020C,X
+  LDA packed_byte
+  CLC
+  ADC #$11
+  STA $020D,X
+  LDA #$03
+  STA $020E,X
+  LDA pause_x
+  CLC
+  ADC #$08
+  STA $020F,X
+
+  RTS
+.endproc
+
+PAUSE_TILE = $AE
+
+; ------------------------------------------------------------
+; Oculta el simbolo de pausa
+; ------------------------------------------------------------
+.proc hide_pause_symbol
+  LDX pause_oam
+  LDA #$F8
+
+  STA $0200,X
+  STA $0204,X
+  STA $0208,X
+  STA $020C,X
+
   RTS
 .endproc
 
@@ -1125,13 +1279,17 @@ load_palettes:
   LDA #$00
   STA player_timer
   LDA #$00
+  STA player_oam
+  LDA #$05
+  STA player_speed
+  LDA #$00
   STA buttons
   LDA #$00
   STA pressed_buttons
   LDA #$00
-  STA player_oam
-  LDA #$05
-  STA player_speed
+  STA paused
+  LDA #$60
+  STA pause_oam
 
   ; --- inicializa vidas y HUD ---
   LDA #$03
@@ -1207,10 +1365,10 @@ palettes:
 .byte $0F, $2D, $00, $10
 
 ; sprite pallete
-.byte $0F, $35, $25, $15 ; kirby y heart
-.byte $0F, $10, $00, $2D ; coin
-.byte $0F, $26, $16, $2A ; link
-.byte $0F, $35, $25, $15 ; 
+.byte $0F, $35, $25, $15 ; Kirby y Heart
+.byte $0F, $10, $00, $2D ; Coin
+.byte $0F, $26, $16, $2A ; Link
+.byte $0F, $30, $10, $00 ; Pause
 
 ; tabla de tiles base para animación
 ; 3 tiles por dirección:
