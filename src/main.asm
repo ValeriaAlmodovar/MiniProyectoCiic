@@ -291,7 +291,7 @@ dir_up:
 
   JSR check_walkable_box
   LDA can_move
-  BEQ try_current_dir
+  BEQ hit_wall_wanted
 
   ; si puede virar, cambia dir y mueve
   LDA player_wanted_dir
@@ -303,7 +303,7 @@ dir_up:
   STA player_posy
   RTS
 
-try_current_dir:
+hit_wall_wanted:
   ; ---------------------------------
   ; intento 2: seguir en dir actual
   ; ---------------------------------
@@ -317,13 +317,15 @@ try_current_dir:
 
   JSR check_walkable_box
   LDA can_move
-  BEQ done
+  BEQ hit_wall_current
 
   LDA next_player_x
   STA player_posx
   LDA next_player_y
   STA player_posy
 
+hit_wall_current:
+  JSR player_hit
 done:
   RTS
 .endproc
@@ -684,9 +686,17 @@ load_coin_pos:
   CMP player_posy
   BCC done
 
-  ; pierdes vida
+JSR player_hit
+done:
+  RTS
+.endproc
+
+.proc player_hit
+  ; si ya no tiene vidas, no hagas nada
   LDA player_lives
   BEQ done
+
+  ; resta una vida
   DEC player_lives
 
   ; reset del player
